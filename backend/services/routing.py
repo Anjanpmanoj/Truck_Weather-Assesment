@@ -32,6 +32,12 @@ MI_PER_DEGREE = 69.0  # approximate miles per degree of latitude
 
 class RoutingError(Exception):
     """Geocoding or routing failed."""
+class LocationNotFound(RoutingError):
+    """The place text matched no US location (a client error)."""
+
+
+class NoRouteFound(RoutingError):
+    """No drivable route exists between the two places (a client error)."""    
 
 
 @dataclass(frozen=True)
@@ -97,7 +103,7 @@ def geocode(query: str, client: httpx.Client | None = None) -> Place:
         )
     features = data.get("features") or []
     if not features:
-        raise RoutingError(f"Could not find a US location for {query!r}")
+        raise LocationNotFound(f"Could not find a US location for {query!r}")
     feature = features[0]
     lon, lat = feature["geometry"]["coordinates"][:2]
     props = feature.get("properties") or {}
@@ -220,7 +226,7 @@ def find_routes(
 
         routes = _fetch_routes(http, ends, True, "mapbox-alternative")[:MAX_ROUTES]
         if not routes:
-            raise RoutingError("No drivable route found between these locations")
+            raise NoRouteFound("No drivable route found between these locations")
         from_mapbox = len(routes)
 
         if from_mapbox < MAX_ROUTES:
