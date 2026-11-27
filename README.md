@@ -3,7 +3,7 @@
 A web app that helps a truck driver pick the safest of up to three routes by combining **weather forecasts at the time the truck actually reaches each point**, **load weight**, and **travel time**. Built with React + TypeScript on the front end and Django REST Framework on the back end.
 
 - **Live application (React frontend):** https://truck-weather-assesment.vercel.app/
-- **Backend API health check:** https://truck-weather-assesment.onrender.com/api/health
+- **Backend API health check:** https://truckweather-assesment-production.up.railway.app/api/health
 - **Source:** this repository
 
 ## Features
