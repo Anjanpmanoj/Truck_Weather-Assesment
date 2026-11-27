@@ -1,7 +1,7 @@
 """Request validation and JSON shaping for the analyze endpoint."""
 
 from __future__ import annotations
-
+from services.corridor import CorridorForecast
 import math
 from bisect import bisect_right
 from datetime import datetime, timedelta, timezone as dt_timezone
@@ -177,4 +177,67 @@ def serialize_trip(
         },
         "notes": list(trip.notes),
         "routes": [_route(a, rec.route_id) for a in trip.routes],
+    }
+MAX_ROUTE_MILES = 6000
+MAX_INPUT_POINTS = 400
+MAX_REFERENCE_AGE = timedelta(hours=24)
+
+
+def _finite(value: float) -> None:
+    if not math.isfinite(value):
+        raise serializers.ValidationError("A valid number is required.")
+
+
+class CorridorPointSerializer(serializers.Serializer):
+    lat = serializers.FloatField(min_value=-90, max_value=90, validators=[_finite])
+    lon = serializers.FloatField(min_value=-180, max_value=180, validators=[_finite])
+    distance_mi = serializers.FloatField(min_value=0, max_value=MAX_ROUTE_MILES, validators=[_finite])
+
+
+class CorridorRequestSerializer(serializers.Serializer):
+    points = CorridorPointSerializer(many=True, min_length=2, max_length=MAX_INPUT_POINTS)
+    load_weight = serializers.FloatField(min_value=0, max_value=MAX_LOAD_LB, validators=[_finite])
+    reference_time = AwareDateTimeField(required=False)
+
+    def validate_points(self, value):
+        distances = [p["distance_mi"] for p in value]
+        if any(b < a for a, b in zip(distances, distances[1:])):
+            raise serializers.ValidationError("Points must be ordered by distance_mi.")
+        if distances[-1] <= distances[0]:
+            raise serializers.ValidationError("Points must span a positive distance.")
+        return value
+
+    def validate_reference_time(self, value):
+        now = datetime.now(dt_timezone.utc)
+        if value < now - MAX_REFERENCE_AGE or value > now + timedelta(days=MAX_FORECAST_DAYS - 3):
+            raise serializers.ValidationError(
+                f"reference_time must be within the last 24 hours and the next {MAX_FORECAST_DAYS - 3} days."
+            )
+        return value.replace(minute=0, second=0, microsecond=0)
+
+
+def serialize_corridor(result: CorridorForecast) -> dict:
+    warnings = []
+    if result.unknown_cells:
+        pct = max(1, round(100 * result.unknown_cells / result.total_cells))
+        warnings.append(
+            f"Forecast data is unavailable for {pct}% of sample points and hours. "
+            "These are shown as Unknown, not as safe."
+        )
+    return {
+        "reference_time": _iso(result.reference_time),
+        "hours": result.hours,
+        "points": [
+            {
+                "lat": round(p.lat, 4),
+                "lon": round(p.lon, 4),
+                "distance_mi": round(p.distance_mi, 1),
+                "risk": p.risk,
+                "gust_mph": [_r(v, 1) for v in p.gust_mph],
+                "rain_in_hr": [_r(v, 3) for v in p.rain_in_hr],
+                "snow_in_hr": [_r(v, 3) for v in p.snow_in_hr],
+            }
+            for p in result.points
+        ],
+        "warnings": warnings,
     }

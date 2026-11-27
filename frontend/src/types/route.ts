@@ -92,3 +92,27 @@ export interface AnalyzeResponse {
 export interface ApiErrorBody {
   error: { code: string; message: string; details?: Record<string, string[]> }
 }
+export type MapMode = 'route' | 'forecast'
+
+export interface CorridorPoint {
+  lat: number
+  lon: number
+  distance_mi: number
+  risk: (number | null)[] // 0 (Low) .. 4 (No Travel) per forecast hour; null = unknown
+  gust_mph: (number | null)[]
+  rain_in_hr: (number | null)[]
+  snow_in_hr: (number | null)[]
+}
+
+export interface CorridorRequest {
+  load_weight: number
+  points: { lat: number; lon: number; distance_mi: number }[]
+  reference_time?: string
+}
+
+export interface CorridorResponse {
+  reference_time: string // hour 0, ISO 8601 UTC
+  hours: number // 48
+  points: CorridorPoint[]
+  warnings: string[]
+}

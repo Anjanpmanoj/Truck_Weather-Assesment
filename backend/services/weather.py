@@ -28,6 +28,7 @@ CHUNK_SIZE = 50  # locations per request
 MAX_PAST_DAYS = 92
 MAX_FORECAST_DAYS = 16
 TIMEOUT = 20.0
+FORECAST_HOURS = 48  # corridor forecast covers reference time +0 .. +48 h
 
 OK = "ok"
 OUT_OF_RANGE = "out_of_range"  # ETA outside the available forecast window
@@ -145,6 +146,36 @@ def _weather_at(series: _Series, eta: datetime) -> CheckpointWeather:
     return CheckpointWeather(OK, wind, gust, rain, snow)
 
 
+def _fetch_series(
+    keys: Sequence[tuple[float, float]],
+    first_eta: datetime,
+    last_eta: datetime,
+    client: httpx.Client | None,
+    now: datetime | None,
+) -> dict[tuple[float, float], _Series] | None:
+    """One batched fetch of hourly series covering first_eta..last_eta.
+
+    Returns None when that period lies entirely outside the available forecast window.
+    """
+    today = (now or datetime.now(timezone.utc)).astimezone(timezone.utc).date()
+    first_date = first_eta.astimezone(timezone.utc).date()
+    # +1h: the last time needs the hourly value after it
+    last_date = (last_eta.astimezone(timezone.utc) + timedelta(hours=1)).date()
+
+    if (last_date - today).days < -MAX_PAST_DAYS or (first_date - today).days >= MAX_FORECAST_DAYS:
+        return None
+    past_days = min(max((today - first_date).days, 0), MAX_PAST_DAYS)
+    forecast_days = min(max((last_date - today).days + 1, 1), MAX_FORECAST_DAYS)
+
+    series_by_key: dict[tuple[float, float], _Series] = {}
+    with _session(client) as http:
+        for i in range(0, len(keys), CHUNK_SIZE):
+            chunk = keys[i : i + CHUNK_SIZE]
+            for key, series in zip(chunk, _fetch_chunk(http, chunk, past_days, forecast_days)):
+                series_by_key[key] = series
+    return series_by_key
+
+
 def fetch_checkpoint_weather(
     checkpoints: Sequence[Checkpoint],
     client: httpx.Client | None = None,
@@ -156,22 +187,31 @@ def fetch_checkpoint_weather(
     """
     if not checkpoints:
         return []
-    today = (now or datetime.now(timezone.utc)).astimezone(timezone.utc).date()
     etas = [c.eta for c in checkpoints]
-    first_date = min(etas).astimezone(timezone.utc).date()
-    # +1h: the last ETA needs the hourly value after it
-    last_date = (max(etas).astimezone(timezone.utc) + timedelta(hours=1)).date()
-
-    if (last_date - today).days < -MAX_PAST_DAYS or (first_date - today).days >= MAX_FORECAST_DAYS:
-        return [CheckpointWeather(OUT_OF_RANGE) for _ in checkpoints]
-    past_days = min(max((today - first_date).days, 0), MAX_PAST_DAYS)
-    forecast_days = min(max((last_date - today).days + 1, 1), MAX_FORECAST_DAYS)
-
     keys = list(dict.fromkeys(_key(c.lat, c.lon) for c in checkpoints))
-    series_by_key: dict[tuple[float, float], _Series] = {}
-    with _session(client) as http:
-        for i in range(0, len(keys), CHUNK_SIZE):
-            chunk = keys[i : i + CHUNK_SIZE]
-            for key, series in zip(chunk, _fetch_chunk(http, chunk, past_days, forecast_days)):
-                series_by_key[key] = series
-    return [_weather_at(series_by_key[_key(c.lat, c.lon)], c.eta) for c in checkpoints]
+    series = _fetch_series(keys, min(etas), max(etas), client, now)
+    if series is None:
+        return [CheckpointWeather(OUT_OF_RANGE) for _ in checkpoints]
+    return [_weather_at(series[_key(c.lat, c.lon)], c.eta) for c in checkpoints]
+
+
+def fetch_hourly_forecast(
+    points: Sequence[tuple[float, float]],  # (lat, lon)
+    start: datetime,
+    hours: int = FORECAST_HOURS,
+    client: httpx.Client | None = None,
+    now: datetime | None = None,
+) -> list[list[CheckpointWeather]]:
+    """Forecast at each point for start + 0..hours hours, in the same order as `points`.
+
+    One batched fetch, then every hour is read from the series already downloaded;
+    it never makes a request per hour.
+    """
+    if not points:
+        return []
+    times = [start + timedelta(hours=h) for h in range(hours + 1)]
+    keys = list(dict.fromkeys(_key(lat, lon) for lat, lon in points))
+    series = _fetch_series(keys, times[0], times[-1], client, now)
+    if series is None:
+        return [[CheckpointWeather(OUT_OF_RANGE)] * len(times) for _ in points]
+    return [[_weather_at(series[_key(lat, lon)], t) for t in times] for lat, lon in points]

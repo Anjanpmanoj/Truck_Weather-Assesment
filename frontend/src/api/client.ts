@@ -1,4 +1,10 @@
-import type { AnalyzeRequest, AnalyzeResponse, ApiErrorBody } from '../types/route'
+import type {
+  AnalyzeRequest,
+  AnalyzeResponse,
+  ApiErrorBody,
+  CorridorRequest,
+  CorridorResponse,
+} from '../types/route'
 
 export class ApiError extends Error {
   code: string
@@ -20,16 +26,13 @@ function fallbackMessage(status: number): string {
     : `Request failed (${status}).`
 }
 
-export async function analyzeTrip(
-  request: AnalyzeRequest,
-  signal?: AbortSignal,
-): Promise<AnalyzeResponse> {
+async function postJson<T>(url: string, body: unknown, signal?: AbortSignal): Promise<T> {
   let response: Response
   try {
-    response = await fetch('/api/analyze', {
+    response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(request),
+      body: JSON.stringify(body),
       signal,
     })
   } catch (e) {
@@ -47,5 +50,11 @@ export async function analyzeTrip(
       err?.details,
     )
   }
-  return data as AnalyzeResponse
+  return data as T
 }
+
+export const analyzeTrip = (request: AnalyzeRequest, signal?: AbortSignal) =>
+  postJson<AnalyzeResponse>('/api/analyze', request, signal)
+
+export const fetchCorridor = (request: CorridorRequest, signal?: AbortSignal) =>
+  postJson<CorridorResponse>('/api/forecast-corridor', request, signal)

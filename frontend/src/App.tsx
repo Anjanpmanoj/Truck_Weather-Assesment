@@ -4,7 +4,7 @@ import ErrorBanner from './components/ErrorBanner'
 import LoadingState from './components/LoadingState'
 import RecommendationBanner from './components/RecommendationBanner'
 import RouteCards from './components/RouteCards'
-import RouteMap from './components/RouteMap'
+import MapPanel from './components/MapPanel'
 import TripForm from './components/TripForm'
 import type { AnalyzeRequest, AnalyzeResponse } from './types/route'
 
@@ -88,7 +88,7 @@ export default function App() {
                 notes={data.notes}
                 routes={data.routes}
               />
-              <RouteMap routes={data.routes} selectedId={selectedId} onSelect={setSelectedId} />
+              <MapPanel data={data} selectedId={selectedId} onSelect={setSelectedId} />
               <RouteCards
                 routes={data.routes}
                 selectedId={selectedId}
