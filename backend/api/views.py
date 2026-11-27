@@ -92,3 +92,8 @@ class ForecastCorridorView(JsonApiView):
         except Exception as exc:
             return failure_response(exc)
         return Response(body)
+class HealthView(JsonApiView):
+    """Cheap liveness check for Render and for waking a sleeping instance. No external calls."""
+
+    def get(self, request):
+        return Response({"status": "ok"})    

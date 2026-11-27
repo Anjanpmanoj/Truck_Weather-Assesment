@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ApiError, analyzeTrip } from './api/client'
 import ErrorBanner from './components/ErrorBanner'
 import LoadingState from './components/LoadingState'
@@ -19,6 +19,10 @@ export default function App() {
   const [data, setData] = useState<AnalyzeResponse | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const abortRef = useRef<AbortController | null>(null)
+    // Wake a sleeping free-tier backend while the user fills in the form.
+  useEffect(() => {
+    fetch('/api/health').catch(() => {})
+  }, [])
 
   async function handleAnalyze(request: AnalyzeRequest) {
     abortRef.current?.abort() // cancel a stale request
