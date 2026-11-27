@@ -4,6 +4,7 @@ import ErrorBanner from './components/ErrorBanner'
 import LoadingState from './components/LoadingState'
 import RecommendationBanner from './components/RecommendationBanner'
 import RouteCards from './components/RouteCards'
+import RouteMap from './components/RouteMap'
 import TripForm from './components/TripForm'
 import type { AnalyzeRequest, AnalyzeResponse } from './types/route'
 
@@ -11,10 +12,11 @@ type Status =
   | { kind: 'idle' }
   | { kind: 'loading' }
   | { kind: 'error'; error: ApiError }
-  | { kind: 'success'; data: AnalyzeResponse }
+  | { kind: 'success' }
 
 export default function App() {
   const [status, setStatus] = useState<Status>({ kind: 'idle' })
+  const [data, setData] = useState<AnalyzeResponse | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const abortRef = useRef<AbortController | null>(null)
 
@@ -22,14 +24,16 @@ export default function App() {
     abortRef.current?.abort() // cancel a stale request
     const controller = new AbortController()
     abortRef.current = controller
-    setStatus({ kind: 'loading' })
+    setStatus({ kind: 'loading' }) // keep the previous result (and the map) mounted
     try {
-      const data = await analyzeTrip(request, controller.signal)
-      setSelectedId(data.recommendation.route_id)
-      setStatus({ kind: 'success', data })
+      const result = await analyzeTrip(request, controller.signal)
+      setData(result)
+      setSelectedId(result.recommendation.route_id)
+      setStatus({ kind: 'success' })
     } catch (e) {
       if (e instanceof DOMException && e.name === 'AbortError') return
       const error = e instanceof ApiError ? e : new ApiError('unknown', 'Something went wrong.', 0)
+      setData(null) // do not leave results from a different trip on screen
       setStatus({ kind: 'error', error })
     }
   }
@@ -65,27 +69,33 @@ export default function App() {
             </div>
           )}
 
-          {status.kind === 'loading' && <LoadingState />}
+          {loading && !data && <LoadingState />}
+          {loading && data && (
+            <p className="text-sm text-slate-400" role="status">
+              Updating routes…
+            </p>
+          )}
 
           {status.kind === 'error' && <ErrorBanner error={status.error} />}
 
-          {status.kind === 'success' && (
-            <>
+          {data && (
+            <div
+              className={'space-y-6 transition-opacity ' + (loading ? 'pointer-events-none opacity-40' : '')}
+              aria-busy={loading}
+            >
               <RecommendationBanner
-                recommendation={status.data.recommendation}
-                notes={status.data.notes}
-                routes={status.data.routes}
+                recommendation={data.recommendation}
+                notes={data.notes}
+                routes={data.routes}
               />
+              <RouteMap routes={data.routes} selectedId={selectedId} onSelect={setSelectedId} />
               <RouteCards
-                routes={status.data.routes}
+                routes={data.routes}
                 selectedId={selectedId}
-                recommendedSafe={status.data.recommendation.safe}
+                recommendedSafe={data.recommendation.safe}
                 onSelect={setSelectedId}
               />
-              <div className="flex h-72 items-center justify-center rounded-2xl border border-dashed border-slate-700 text-sm text-slate-500">
-                Interactive map and 48-hour weather heatmap come next
-              </div>
-            </>
+            </div>
           )}
         </section>
       </main>

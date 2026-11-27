@@ -8,3 +8,38 @@ body {
   margin: 0;
   background-color: #020617;
 }
+
+/* Mapbox popups are white by default; match the dark UI. */
+.wr-popup .mapboxgl-popup-content {
+  background: #0f172a;
+  color: #e2e8f0;
+  border: 1px solid #334155;
+  border-radius: 12px;
+  padding: 12px 14px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+.wr-popup .mapboxgl-popup-close-button {
+  color: #94a3b8;
+  font-size: 18px;
+  padding: 2px 8px;
+}
+.wr-popup .mapboxgl-popup-close-button:hover {
+  background: transparent;
+  color: #f8fafc;
+}
+.wr-popup.mapboxgl-popup-anchor-top .mapboxgl-popup-tip,
+.wr-popup.mapboxgl-popup-anchor-top-left .mapboxgl-popup-tip,
+.wr-popup.mapboxgl-popup-anchor-top-right .mapboxgl-popup-tip {
+  border-bottom-color: #0f172a;
+}
+.wr-popup.mapboxgl-popup-anchor-bottom .mapboxgl-popup-tip,
+.wr-popup.mapboxgl-popup-anchor-bottom-left .mapboxgl-popup-tip,
+.wr-popup.mapboxgl-popup-anchor-bottom-right .mapboxgl-popup-tip {
+  border-top-color: #0f172a;
+}
+.wr-popup.mapboxgl-popup-anchor-left .mapboxgl-popup-tip {
+  border-right-color: #0f172a;
+}
+.wr-popup.mapboxgl-popup-anchor-right .mapboxgl-popup-tip {
+  border-left-color: #0f172a;
+}
