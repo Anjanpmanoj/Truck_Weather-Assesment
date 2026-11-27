@@ -6,3 +6,6 @@ db.sqlite3
 node_modules/
 dist/
 .vscode/
+.env.*
+!.env.example
+*.local
