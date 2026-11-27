@@ -2,8 +2,8 @@
 
 A web app that helps a truck driver pick the safest of up to three routes by combining **weather forecasts at the time the truck actually reaches each point**, **load weight**, and **travel time**. Built with React + TypeScript on the front end and Django REST Framework on the back end.
 
-- **Live app:** https://YOUR-APP.vercel.app
-- **Loom walkthrough:** https://www.loom.com/share/YOUR-VIDEO-ID
+- **Live application (React frontend):** https://truck-weather-assesment.vercel.app/
+- **Backend API health check:** https://truck-weather-assesment.onrender.com/api/health
 - **Source:** this repository
 
 ## Features
@@ -108,6 +108,8 @@ Mapbox usually returns one or two routes. If fewer than three come back, the app
 
 ## API
 
+**Backend base URL:** https://truck-weather-assesment.onrender.com
+
 | Method and path | Purpose |
 |---|---|
 | `POST /api/analyze` | Routes, checkpoints, weather, risk, recommendation |
@@ -181,8 +183,8 @@ npm run build              # type-checks and builds
 
 - Root directory: `frontend` (Vite preset: build `npm run build`, output `dist`)
 - Environment: `VITE_MAPBOX_TOKEN` (set before building)
-- Put the Render URL in `frontend/vercel.json` so `/api/*` is proxied to the backend.
-- Add the Vercel URL to the browser token's URL restrictions in Mapbox.
+- `frontend/vercel.json` rewrites `/api/*` to `https://truck-weather-assesment.onrender.com/api/*`.
+- If using a URL-restricted browser token, allow `https://truck-weather-assesment.vercel.app/` in Mapbox. The Mapbox default public token is unrestricted.
 
 No database migrations are needed: the API defines no models.
 
